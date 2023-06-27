@@ -1,5 +1,5 @@
 import { createContext, useEffect, useState } from 'react';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import app from '../Firebase/firebase.config';
 
 export const AuthContext = createContext();
@@ -8,6 +8,7 @@ const auth = getAuth(app);
 const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const googleProvider = new GoogleAuthProvider();
 
     const createUser = (email, password) => {
         setLoading(true);
@@ -17,6 +18,11 @@ const AuthProvider = ({ children }) => {
     const signUp = (email, password) => {
         setLoading(true);
         return signInWithEmailAndPassword(auth, email, password);
+    }
+
+    const googleSignIn = () => {
+        setLoading(true);
+        return signInWithPopup(auth, googleProvider);
     }
 
     const logOut = () => {
@@ -29,6 +35,28 @@ const AuthProvider = ({ children }) => {
             setUser(currentUser);
             console.log('current user', currentUser);
             setLoading(false);
+            if (currentUser && currentUser.email) {
+                const loggedUser = {
+                    email: currentUser.email
+                }
+                fetch('https://module-70-car-doctor-server-ten.vercel.app/jwt', {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json'
+                    },
+                    body: JSON.stringify(loggedUser)
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        console.log('jwt response', data);
+                        // local storage is not the best (second best place) to store access token.
+                        localStorage.setItem('car-access-token', data.token)
+
+                    })
+            }
+            else {
+                localStorage.removeItem('car-access-token');
+            }
         });
         return () => {
             return unsubscribe();
@@ -40,7 +68,8 @@ const AuthProvider = ({ children }) => {
         loading,
         createUser,
         signUp,
-        logOut
+        googleSignIn,
+        logOut,
     }
     return (
         <AuthContext.Provider value={authInfo}>
